@@ -1,41 +1,46 @@
 # renamer_settings.py
 config = {
-    "api_key": "",  # Your API key, if needed for the GraphQL endpoint
-    "endpoint": "http://localhost:9999/graphql",  # GraphQL endpoint
+    "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJIZXJ6ZW5iZXJnIiwic3ViIjoiQVBJS2V5IiwiaWF0IjoxNzI2MDI5MTQ1fQ.HB-1rDiIMITu-FK0V_x6hPvcJ0gJB787vsDP3Aju-0M",  # Your API key, if needed for the GraphQL endpoint
+    "endpoint": "http://192.168.0.15:9999/graphql",  # GraphQL endpoint
     "log_path": "./renamer.log",  # Path to log file
-    "default_move_path": r"C:\No Studio",  # Default path for moving files
+    "default_move_path": r"/home/No Studio",  # Default path for moving files
     "wrapper_styles": {
-        "studio": ('{', '}'),
-        "title": ('(', ')'),
-        "performers": ('[', ']'),
-        "date": ('[', ']'),
-        "height": ('[', ']'),
+        "studio": ('[', ']'),
+        "title": ('', ''),
+        "performers": ('(', ')'),
+        "date": ('', ''),
+        "height": ('', ''),
         "video_codec": ('[', ']'),
-        "frame_rate": ('[', ']'),
+        "frame_rate": ('', ''),
         "tag": ('[', ']'),
         "stash_id": ('[', ']')
     },
-    "separator": '-',  # Separator used in filenames
+    "separator": ' - ',  # Separator used in filenames
     "key_order": [
         "studio",
-        "title",
-        "performers",
         "date",
+        "performers",
+        "title",
         "height",
         "video_codec",
         "frame_rate",
         "tags"
     ],
-    "exclude_keys": ["height", "frame_rate"],  # Keys to exclude from filename formation
+    "folder_key_order": [
+        "date",
+        "title"        
+    ],
+    "exclude_keys": ["height", "frame_rate","tags"],  # Keys to exclude from filename formation
     "move_files": True,  # Enable moving of files
     "rename_files": True,  # Enable renaming of files
+    "move_trickplay": True, # Enable Moving trickplay folder
     "dry_run": True,  # Dry run mode
     "max_tag_keys": 5,  # Maximum number of tag keys in filename
     "tag_whitelist": [],  # List of tags to include in filename
     "exclude_paths": [],  # Paths to exclude from processing
     "stashbox_endpoints": ["https://stashdb.org/graphql"],
     "tag_specific_paths": {
-        "Movie": r"E:\Movies"  # Specific paths based on tags
+        "Movie": r"/home/Movies"  # Specific paths based on tags
     },
     "regex_transformations": {
         "all_uppercase": {  # Transforms text to uppercase
@@ -49,11 +54,25 @@ config = {
             "replacement": lambda match: match.group().lower()  # Transform to lowercase
         }
     },
-    "associated_files": ["srt", "vtt", "jpg", "png"],  # File extensions of associated files to rename
+    "associated_files": ["srt", "vtt", "jpg", "png","-poster.png","-poster.jpg"],  # File extensions of associated files to rename based off basename
+    "unassociated_files": ["poster","fanart","backdrop"], # file to move using the extension of "associated_files"
     "performer_sort": "name",  # Sort performers by name
     "performer_limit": 3,  # Limit number of performers listed in filename
     "date_format": "%Y-%m-%d",  # Date format in filenames
     "studio_templates": {
         "1By-Day": "$studio - $date - $performers - $title"
+    },
+    "folder-map": {
+        "/data": "Z:\\Adultery"
     }
 }
+
+debug_hookContext = """
+{
+    "args":{
+        "hookContext": {
+            "id":1078
+        }
+    }
+}
+"""
