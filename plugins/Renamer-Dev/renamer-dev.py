@@ -2,7 +2,6 @@ import requests
 import shutil
 from pathlib import Path
 import stashapi.log as logger
-from renamer_settings import config
 import logging
 import json
 from pythonjsonlogger import jsonlogger
@@ -10,6 +9,16 @@ import re
 import sys
 import os
 import platform
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+settings_template_path = os.path.join(script_dir, "renamer_settings.py.template")
+settings_path = os.path.join(script_dir, "renamer_settings.py")
+if not os.path.exists(settings_path):
+    if os.path.exists(settings_template_path):
+        shutil.copy(settings_template_path, settings_path)
+        
+from renamer_settings import config
 
 try:
     from renamer_settings import debug_hookContext
