@@ -9,6 +9,7 @@ config = {
         "title": ('', ''),
         "performers": ('(', ')'),
         "date": ('', ''),
+        "year": ('', ''),
         "height": ('', ''),
         "video_codec": ('[', ']'),
         "frame_rate": ('', ''),

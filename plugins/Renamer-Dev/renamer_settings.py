@@ -9,6 +9,7 @@ config = {
         "title": ('', ''),
         "performers": ('(', ')'),
         "date": ('', ''),
+        "year": ('', ''),
         "height": ('', ''),
         "video_codec": ('[', ']'),
         "frame_rate": ('', ''),
@@ -27,14 +28,15 @@ config = {
         "tags"
     ],
     "folder_key_order": [
-        "date",
-        "title"        
+        "year"
+        #"date",
+        #"title"        
     ],
     "exclude_keys": ["height", "frame_rate","tags"],  # Keys to exclude from filename formation
     "move_files": True,  # Enable moving of files
     "rename_files": True,  # Enable renaming of files
     "move_trickplay": True, # Enable Moving trickplay folder
-    "dry_run": True,  # Dry run mode
+    "dry_run": False,  # Dry run mode
     "max_tag_keys": 5,  # Maximum number of tag keys in filename
     "tag_whitelist": [],  # List of tags to include in filename
     "exclude_paths": [],  # Paths to exclude from processing
@@ -71,7 +73,7 @@ debug_hookContext = """
 {
     "args":{
         "hookContext": {
-            "id":1078
+            "id":1036
         }
     }
 }

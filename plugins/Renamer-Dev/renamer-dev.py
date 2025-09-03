@@ -1,3 +1,5 @@
+import subprocess
+import time
 import requests
 import shutil
 from pathlib import Path
@@ -10,7 +12,12 @@ import sys
 import os
 import platform
 
+def is_debugger_attached():
+    return any('pydevd' in mod for mod in sys.modules)
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
+service_script =os.path.join(script_dir, "service.py")
+lock_file = os.path.join(script_dir, "renamer-lock.dat")
 
 settings_template_path = os.path.join(script_dir, "renamer_settings.py.template")
 settings_path = os.path.join(script_dir, "renamer_settings.py")
@@ -24,6 +31,8 @@ try:
     from renamer_settings import debug_hookContext
 except ImportError:
     debug_hookContext = None
+
+is_debug_mode = debug_hookContext != None and is_debugger_attached()
 
 IS_WINDOWS = platform.system() == 'Windows'
 
@@ -114,14 +123,16 @@ def apply_studio_template(studio_name, scene_data):
     for key, value in scene_data.items():
         if isinstance(value, dict) and 'name' in value:
             value = value['name']
-        if key == 'performers':
+        elif key == 'performers':
             value = sort_performers(value)
             value = config['separator'].join(performer['name'] for performer in value)
-        if key == 'tags':
+        elif key == 'tags':
             filtered_tags = [tag['name'] for tag in value if tag['name'] in config['tag_whitelist']]
             value = config['separator'].join(filtered_tags) if filtered_tags else ''
-        if key == 'date' and value:
+        elif key == 'date' and value:
             value = apply_date_format(value)
+        elif key == 'year' and value:
+            value = apply_year_format(value)
         value = apply_regex_transformations(value, key) if isinstance(value, str) else value
         value = replace_illegal_characters(value) if isinstance(value, str) else value
         template_data[key] = value
@@ -178,7 +189,7 @@ def move_associated_files(directory, new_directory, filename_base, dry_run, scen
         check_file  = f"{filename_base}.{ext}"
         associated_file = directory / check_file
         if os.path.exists(associated_file):
-            new_associated_file = new_directory / f"{new_filename_base}*.{ext}"
+            new_associated_file = new_directory / f"{filename_base}*.{ext}"
             if dry_run:
                 logger.info(f"Dry run: Would move '{associated_file}' to '{new_associated_file}'")
             else:
@@ -215,14 +226,14 @@ def move_associated_files(directory, new_directory, filename_base, dry_run, scen
                         ext_log.info(f"Moved associated file", extra={"original_path": str(item), "new_path": str(new_associated_file), "scene_id": scene_id})
 
 
-def move_trickplay_folder(base_name: str, original_dir: str, destination_dir: str):
+def move_trickplay_folder(original_base_name: str, new_base_name: str, original_dir: str, destination_dir: str):
     # Construct source folder path
-    source_folder = os.path.join(original_dir, f"{base_name}.trickplay")
+    source_folder = os.path.join(original_dir, f"{original_base_name}.trickplay")
 
     # Check if it exists and is a directory
     if os.path.isdir(source_folder):
-        dest_folder = os.path.join(destination_dir, f"{base_name}.trickplay")
-        if dry_run:
+        dest_folder = os.path.join(destination_dir, f"{new_base_name}.trickplay")
+        if config["dry_run"]:
             logger.info(f"Dry run: Would move trickplay '{source_folder}' to '{dest_folder}'")
         else:
             shutil.move(source_folder, dest_folder)
@@ -273,7 +284,7 @@ def safe_file_operation(source_path, target_path, operation='move', dry_run=Fals
 
 def process_files(scene, new_filename, move, rename, dry_run):
     original_path = makePath(scene['file_path'])
-    new_path = calculate_new_path(original_path, new_filename)
+    new_path = os.path.join(original_path, new_filename)
     directory = original_path.parent
     filename_base = original_path.stem
     new_filename_base = new_path.stem
@@ -299,7 +310,7 @@ def process_files(scene, new_filename, move, rename, dry_run):
             })
             move_associated_files(directory, new_directory, filename_base, dry_run)
         if config["move_trickplay"] and new_path:
-           move_trickplay_folder(filename_base, directory.resolve(), new_directory.resolve())
+           move_trickplay_folder(filename_base, filename_base, directory.resolve(), new_directory.resolve())
     elif rename:
         new_path = safe_file_operation(original_path, new_path, 'rename', dry_run)
         if new_path and not dry_run:
@@ -320,6 +331,14 @@ def apply_date_format(value):
     except ValueError as e:
         ext_log.error(f"Date formatting error: {str(e)}")
         return value
+    
+def apply_year_format(value):
+    try:
+        formatted_date = datetime.datetime.strptime(value, "%Y-%m-%d").strftime("%Y")
+        return formatted_date
+    except ValueError as e:
+        ext_log.error(f"Date formatting error: {str(e)}")
+        return value    
 
 def form_new_filename(scene):
     studio = scene.get('studio', None)
@@ -354,6 +373,8 @@ def form_new_filename(scene):
             # value = value.get('stash_id')
         elif key == 'date' and value:
             value = apply_date_format(value)
+        elif key == 'year' and scene.get('date'):
+            value = apply_year_format(scene.get('date'))
         elif key in ['studio', 'title']:
             value = value.get('name', '') if isinstance(value, dict) else value
         elif key in ['height', 'video_codec', 'frame_rate']:
@@ -385,7 +406,7 @@ def form_new_foldername(scene):
             continue
 
         value = scene.get(key)
-        if key == 'studio' and not studio:
+        if key == 'studio' and not scene.studio:
             continue  # Skip studio if it's None
         if isinstance(value, dict) and 'name' in value:
             value = value['name']
@@ -403,6 +424,8 @@ def form_new_foldername(scene):
             # value = value.get('stash_id')
         elif key == 'date' and value:
             value = apply_date_format(value)
+        elif key == 'year' and scene.get('date'):
+            value = apply_year_format(scene.get('date'))
         elif key in ['studio', 'title']:
             value = value.get('name', '') if isinstance(value, dict) else value
         elif key in ['height', 'video_codec', 'frame_rate']:
@@ -505,10 +528,17 @@ def move_or_rename_files(scene, new_filename, move, rename, dry_run):
                 logger.info(f"Dry run: Would {action} file: {original_path} -> {new_path}")
 
                 if config["move_trickplay"]:
-                    move_trickplay_folder(original_path.stem, original_path.parent, target_directory)
+                    move_trickplay_folder(original_path.stem, new_path.stem, original_path.parent, target_directory)
                 
                 if move:
                     move_associated_files(original_path.parent, target_directory, original_path.stem, dry_run, scene_id)
+
+                results.append({
+                    "action": action,
+                    "original_path": str(original_path),
+                    "new_path": str(new_path),
+                    "scene_id": scene_id
+                })
                 continue
 
             try:
@@ -581,12 +611,11 @@ def find_scene_by_id(scene_id):
     scene_data = graphql_request(query_find_scene, variables={"scene_id": scene_id})
     return scene_data.get('findScene')
 
-def is_debugger_attached():
-    return any('pydevd' in mod for mod in sys.modules)
 
 def get_hook_context():
+    global is_debug_mode
     try:
-        if debug_hookContext != None and is_debugger_attached():
+        if is_debug_mode:
             json_input = json.loads(debug_hookContext)
         else:
             json_input = json.loads(sys.stdin.read())        
@@ -596,6 +625,39 @@ def get_hook_context():
     except json.JSONDecodeError:
         logger.error("Failed to decode JSON input.")
         return {}
+
+def append_to_lock_file(path_str: list[str]):
+    global lock_file
+    with Path(lock_file).open("a", encoding="utf-8") as f:
+        f.write("\n".join(path_str) + "\n")
+    
+def launch_detached_service():
+
+    cwd = str(Path(service_script).resolve().parent)
+    
+    if sys.platform == "win32":
+        # Windows: DETACHED_PROCESS flag
+        DETACHED_PROCESS = 0x00000008
+        subprocess.Popen(
+            [sys.executable, str(service_script)],
+            cwd=cwd,
+            creationflags=DETACHED_PROCESS,
+            close_fds=True
+        )
+    else:
+        # Unix-like: use setsid to detach
+        subprocess.Popen(
+            [sys.executable, str(service_script)],
+            cwd=cwd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=os.setsid
+        )
+
+    global is_debug_mode
+    if is_debug_mode:
+        time.sleep(120) # This allows us to debug the service.py
+
 
 def main():
     hook_context = get_hook_context()
@@ -612,9 +674,35 @@ def main():
     if not detailed_scene:
         logger.error(f"Failed to fetch details for scene ID: {scene_id}")
         return
+       
 
     new_filename = form_new_filename(detailed_scene)
-    move_or_rename_files(detailed_scene, new_filename, config['move_files'], config['rename_files'], config['dry_run'])
+    results = move_or_rename_files(detailed_scene, new_filename, config['move_files'], config['rename_files'], config['dry_run'])
+
+    unique_paths = set()
+
+    if len(results) > 0:
+
+        path_lock_file = Path(lock_file)
+        is_service_running = path_lock_file.exists()
+        # Sanity Check - see if service crashed
+        if is_service_running:            
+            last_modified = path_lock_file.stat().st_mtime
+            age = time.time() - last_modified
+            if age > 60:
+                is_service_running = False
+
+        for move in results:
+            # we are looking for 1 valid 
+            if move["original_path"] and move["new_path"]:
+                unique_paths.add(os.path.dirname(move["original_path"]))
+                unique_paths.add(os.path.dirname(move["new_path"]))
+
+        append_to_lock_file(list(unique_paths))
+
+        if not is_service_running and not config['dry_run']:
+            launch_detached_service()
+
 
 if __name__ == '__main__':
     main()
