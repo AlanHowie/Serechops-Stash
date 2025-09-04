@@ -250,6 +250,13 @@ def get_unique_path(target_path):
     extension = target_path.suffix
     counter = 1
     
+    modified_time = Path(target_path).stat().st_mtime;
+    formatted_date = datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d")
+
+    new_path = directory / f"{name} ({formatted_date}){extension}"
+    if not new_path.exists():
+        return new_path
+
     while True:
         new_path = directory / f"{name} ({counter}){extension}"
         if not new_path.exists():

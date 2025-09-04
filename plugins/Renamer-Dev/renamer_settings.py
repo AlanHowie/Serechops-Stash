@@ -66,6 +66,10 @@ config = {
     },
     "folder-map": {
         "/data": "Z:\\Adultery"
+    },
+    "webhook": {
+        "url": "http://192.168.0.2:9080/transcoder/webhook/",
+        "api_key": "6bce742e65bb5e6ce21e19adb411b0f6"
     }
 }
 
