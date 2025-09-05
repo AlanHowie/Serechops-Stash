@@ -1,3 +1,5 @@
 Renamer-Dev.code-workspace
 .vscode
 renamer_settings.py
+renamer_debug.py
+/renamer-lock.dat
