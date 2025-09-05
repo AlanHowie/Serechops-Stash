@@ -72,12 +72,3 @@ config = {
     }
 }
 
-debug_hookContext = """
-{
-    "args":{
-        "hookContext": {
-            "id":1078
-        }
-    }
-}
-"""

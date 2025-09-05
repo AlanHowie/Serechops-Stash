@@ -1,5 +1,6 @@
 # renamer_settings.py
 config = {
+    "dry_run": False,  # Dry run mode
     "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJIZXJ6ZW5iZXJnIiwic3ViIjoiQVBJS2V5IiwiaWF0IjoxNzI2MDI5MTQ1fQ.HB-1rDiIMITu-FK0V_x6hPvcJ0gJB787vsDP3Aju-0M",  # Your API key, if needed for the GraphQL endpoint
     "endpoint": "http://192.168.0.15:9999/graphql",  # GraphQL endpoint
     "log_path": "./renamer.log",  # Path to log file
@@ -35,8 +36,7 @@ config = {
     "exclude_keys": ["height", "frame_rate","tags"],  # Keys to exclude from filename formation
     "move_files": True,  # Enable moving of files
     "rename_files": True,  # Enable renaming of files
-    "move_trickplay": True, # Enable Moving trickplay folder
-    "dry_run": False,  # Dry run mode
+    "move_trickplay": True, # Enable Moving trickplay folder    
     "max_tag_keys": 5,  # Maximum number of tag keys in filename
     "tag_whitelist": [],  # List of tags to include in filename
     "exclude_paths": [],  # Paths to exclude from processing
@@ -65,20 +65,10 @@ config = {
         "1By-Day": "$studio - $date - $performers - $title"
     },
     "folder-map": {
-        "/data": "Z:\\Adultery"
+        "/media/nas/Media-5TB/Adultery": "Z:\\Adultery"
     },
     "webhook": {
         "url": "http://192.168.0.2:9080/transcoder/webhook/",
         "api_key": "6bce742e65bb5e6ce21e19adb411b0f6"
     }
 }
-
-debug_hookContext = """
-{
-    "args":{
-        "hookContext": {
-            "id":1036
-        }
-    }
-}
-"""

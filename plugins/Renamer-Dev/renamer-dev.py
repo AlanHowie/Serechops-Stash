@@ -27,12 +27,16 @@ if not os.path.exists(settings_path):
         
 from renamer_settings import config
 
-try:
-    from renamer_settings import debug_hookContext
-except ImportError:
-    debug_hookContext = None
+is_debug_mode = is_debugger_attached()
 
-is_debug_mode = debug_hookContext != None and is_debugger_attached()
+debug_hookContext = None
+if is_debug_mode:
+    try:
+        from renamer_debug import debug_hookContext
+    except ImportError:
+        logger.error(f"Failed to import renamer_debug.debug_hookContext")
+        is_debug_mode = False
+
 
 IS_WINDOWS = platform.system() == 'Windows'
 
@@ -186,10 +190,15 @@ def rename_associated_files(directory, filename_base, new_filename_base, dry_run
 
 def move_associated_files(directory, new_directory, filename_base, dry_run, scene_id=None):
     for ext in config['associated_files']:
-        check_file  = f"{filename_base}.{ext}"
+
+        if ext[0] in {'.', '-'}:
+            check_file  = f"{filename_base}{ext}"
+        else:
+            check_file  = f"{filename_base}.{ext}"
+
         associated_file = directory / check_file
-        if os.path.exists(associated_file):
-            new_associated_file = new_directory / f"{filename_base}*.{ext}"
+        if associated_file.exists():
+            new_associated_file = new_directory / check_file
             if dry_run:
                 logger.info(f"Dry run: Would move '{associated_file}' to '{new_associated_file}'")
             else:
@@ -200,7 +209,12 @@ def move_associated_files(directory, new_directory, filename_base, dry_run, scen
 
     for file in config['unassociated_files']:                    
         for ext in config['associated_files']:
-            check_file  = f"{file}.{ext}"
+            
+            if ext[0] in {'.', '-'}:
+                check_file  = f"{file}{ext}"
+            else:
+                check_file  = f"{file}.{ext}"
+
             associated_file = directory / check_file
             if os.path.exists(associated_file):
                 new_associated_file = new_directory / check_file
@@ -317,7 +331,7 @@ def process_files(scene, new_filename, move, rename, dry_run):
             })
             move_associated_files(directory, new_directory, filename_base, dry_run)
         if config["move_trickplay"] and new_path:
-           move_trickplay_folder(filename_base, filename_base, directory.resolve(), new_directory.resolve())
+           move_trickplay_folder(filename_base, new_filename_base, directory.resolve(), new_directory.resolve())
     elif rename:
         new_path = safe_file_operation(original_path, new_path, 'rename', dry_run)
         if new_path and not dry_run:
@@ -471,6 +485,8 @@ def linux_to_windows_path(linux_path: str) -> str:
 def makePath(linux_path: str) -> Path:
     return Path(linux_to_windows_path(linux_path)) if IS_WINDOWS else Path(linux_path)
 
+def is_directory_empty(path):
+    return not os.listdir(path)
 
 def move_or_rename_files(scene, new_filename, move, rename, dry_run):
     if not scene:
@@ -559,6 +575,10 @@ def move_or_rename_files(scene, new_filename, move, rename, dry_run):
                                 "new_path": str(new_path), 
                                 "scene_id": scene_id
                             })
+
+                        if config["move_trickplay"]:
+                            move_trickplay_folder(original_path.stem, new_path.stem, original_path.parent, target_directory)
+
                         move_associated_files(original_path.parent, target_directory, original_path.stem, dry_run, scene_id)
                 elif rename:
                     new_path = safe_file_operation(original_path, new_path, 'rename', dry_run)
@@ -579,6 +599,16 @@ def move_or_rename_files(scene, new_filename, move, rename, dry_run):
                         "new_path": str(new_path),
                         "scene_id": scene_id
                     })
+
+                    if is_directory_empty(original_path.parent):
+                        if dry_run:
+                            logger.info(f"Dry run: Would delete the empty folder: {original_path.parent}")
+                        else:
+                            try:
+                                os.rmdir(original_path.parent)
+                                logger.info(f"Delete empty folder: {original_path.parent}")
+                            except OSError as e:
+                                print(f"Could not delete '{original_path.parent}': {e}")
 
             except Exception as e:
                 logger.error(f"Failed to {move and 'move' or 'rename'} file: {str(e)}")
@@ -707,7 +737,7 @@ def main():
 
         append_to_lock_file(list(unique_paths))
 
-        if not is_service_running and not config['dry_run']:
+        if not is_debug_mode and not is_service_running and not config['dry_run']:
             launch_detached_service()
 
 
